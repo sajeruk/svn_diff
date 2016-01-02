@@ -3124,6 +3124,7 @@ sub_main(int *exit_code, int argc, const char *argv[], apr_pool_t *pool)
 int
 main(int argc, const char *argv[])
 {
+  printf("hello world\n");
   apr_pool_t *pool;
   int exit_code = EXIT_SUCCESS;
   svn_error_t *err;
