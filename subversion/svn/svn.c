@@ -143,6 +143,7 @@ typedef enum svn_cl__longopt_t {
   opt_show_passwords,
   opt_pin_externals,
   opt_show_item,
+  opt_unique_path,
 } svn_cl__longopt_t;
 
 
@@ -448,6 +449,8 @@ const apr_getopt_option_t svn_cl__options[] =
                           "                author of 'last-changed-revision'\n"
                           "                             "
                           "   'wc-root'    root of TARGET's working copy")},
+  {"unique-path", opt_unique_path, 0,
+                       N_("lcs all path args for diff")},
 
   /* Long-opt Aliases
    *
@@ -710,7 +713,7 @@ const svn_opt_subcommand_desc2_t svn_cl__cmd_table[] =
      opt_internal_diff, 'x', opt_no_diff_added, opt_no_diff_deleted,
      opt_ignore_properties, opt_properties_only,
      opt_show_copies_as_adds, opt_notice_ancestry, opt_summarize, opt_changelist,
-     opt_force, opt_xml, opt_use_git_diff_format, opt_patch_compatible} },
+     opt_force, opt_xml, opt_use_git_diff_format, opt_patch_compatible, opt_unique_path} },
   { "export", svn_cl__export, {0}, N_
     ("Create an unversioned copy of a tree.\n"
      "usage: 1. export [-r REV] URL[@PEGREV] [PATH]\n"
@@ -2400,6 +2403,9 @@ sub_main(int *exit_code, int argc, const char *argv[], apr_pool_t *pool)
       case opt_use_git_diff_format:
         opt_state.diff.use_git_diff_format = TRUE;
         break;
+      case opt_unique_path:
+        opt_state.diff.unique_path = TRUE;
+        break;
       case opt_allow_mixed_revisions:
         opt_state.allow_mixed_rev = TRUE;
         break;
@@ -3124,7 +3130,6 @@ sub_main(int *exit_code, int argc, const char *argv[], apr_pool_t *pool)
 int
 main(int argc, const char *argv[])
 {
-  printf("hello world\n");
   apr_pool_t *pool;
   int exit_code = EXIT_SUCCESS;
   svn_error_t *err;

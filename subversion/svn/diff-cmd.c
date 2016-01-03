@@ -181,6 +181,85 @@ summarize_regular(const svn_client_diff_summarize_t *summary,
   return svn_cmdline_fflush(stdout);
 }
 
+static svn_error_t *
+remove_duplicate_path(apr_array_header_t **targets_p,
+                      apr_pool_t *pool)
+{
+  static const DEF_SIZE = 5;
+  int i;
+  int j;
+  apr_array_header_t *tmp_targets =
+    apr_array_make(pool, DEF_SIZE, sizeof(const char *));
+  apr_array_header_t *output_targets =
+    apr_array_make(pool, DEF_SIZE, sizeof(const char *));
+
+  for (i = 0; i < (*targets_p)->nelts; ++i)
+    {
+      const char *target = APR_ARRAY_IDX(*targets_p, i,
+                                             const char *);
+      if (svn_path_is_url(target))
+        {
+          APR_ARRAY_PUSH(tmp_targets, const char *) = target;
+          continue;
+        }
+      char* absolute;
+      SVN_ERR(svn_dirent_get_absolute(&absolute, target, pool));
+      int add = 1;
+      for (j = 0; j < tmp_targets->nelts; ++j)
+        {
+          char **tmp = &APR_ARRAY_IDX(tmp_targets, j, char *);
+          if (svn_path_is_url(*tmp))
+            {
+              continue;
+            }
+          else if (svn_dirent_skip_ancestor(*tmp, absolute) != NULL)
+            {
+              add = 0;
+              break;
+            }
+          else if (svn_dirent_skip_ancestor(absolute, *tmp) != NULL)
+            {
+              add = 0;
+              *tmp = absolute;
+            }
+        }
+      if (add)
+        {
+          APR_ARRAY_PUSH(tmp_targets, const char *) = absolute;
+        }
+      }
+
+    for (i = 0; i < tmp_targets->nelts; ++i)
+      {
+        const char *target = APR_ARRAY_IDX(tmp_targets, i,
+                                           const char *);
+        int add = 1;
+        if (svn_path_is_url(target))
+          {
+            break;
+          }
+
+        for (j = 0; j < output_targets->nelts; ++j)
+          {
+            const char *target1 = APR_ARRAY_IDX(output_targets, j,
+                                 const char *);
+            if (strcmp(target, target1) == 0)
+              {
+                add = 0;
+                break;
+              }
+          }
+        if (add)
+          {
+            APR_ARRAY_PUSH(output_targets, const char* ) = target;
+          }
+      }
+
+    *targets_p = output_targets;
+
+  return SVN_NO_ERROR;
+}
+
 /* An svn_opt_subcommand_t to handle the 'diff' command.
    This implements the `svn_opt_subcommand_t' interface. */
 svn_error_t *
@@ -233,6 +312,7 @@ svn_cl__diff(apr_getopt_t *os,
       svn_xml_make_open_tag(&sb, pool, svn_xml_normal, "paths", SVN_VA_NULL);
       SVN_ERR(svn_cl__error_checked_fputs(sb->data, stdout));
     }
+
   if (opt_state->diff.summarize)
     {
       if (opt_state->diff.use_git_diff_format)
@@ -274,6 +354,10 @@ svn_cl__diff(apr_getopt_t *os,
   SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
                                                       opt_state->targets,
                                                       ctx, FALSE, pool));
+  if (opt_state->diff.unique_path)
+  {
+    SVN_ERR(remove_duplicate_path(&targets, pool));
+  }
 
   if (! opt_state->old_target && ! opt_state->new_target
       && (targets->nelts == 2)
